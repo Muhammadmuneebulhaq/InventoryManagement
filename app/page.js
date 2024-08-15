@@ -5,6 +5,7 @@ import { firestore, storage } from "./firebase";
 import { collection, query, doc, setDoc, deleteDoc, getDoc, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
 
 export default function Home() {
   const [inventory, setInventory] = useState([]);
@@ -107,7 +108,12 @@ export default function Home() {
   });
 
   return (
-    <Box width='100vw' height='100vh' display='flex' flexDirection="column" justifyContent='center' alignItems='center' p={4} gap={2}>
+    <Box width='100vw' height='100vh' display='flex' flexDirection="column" justifyContent='center' alignItems='center' p={4} gap={2}
+        style={{
+          backgroundImage: `url(${"https://img.freepik.com/free-photo/high-angle-forklift-blue-background_23-2149853122.jpg?t=st=1723740510~exp=1723744110~hmac=acbc1b5ffe2004a28f0f1c40b1198f54b20d8ca8113a4e698245fc7dfae0283c&w=900"})`,
+          backgroundSize: "cover",
+        }}
+    >
       <Modal open={open} onClose={handleClose}>
         <Box position="absolute" top="50%" left="50%" width={400} bgcolor="white" border="2px solid #000"
           boxShadow={24} p={4} display="flex" flexDirection="column" gap={3} sx={{ transform: "translate(-50%, -50%)" }}
@@ -122,11 +128,14 @@ export default function Home() {
               onChange={(e) => { setItemName(e.target.value) }}
             />
             <TextField
+              id="outlined-number"
+              type="number"
               variant="outlined"
               fullWidth
               label="Quantity"
               value={quantity}
               onChange={(e) => { setQuantity(e.target.value) }}
+              defaultValue={1}
             />
             <Button variant="contained" component="label">
               Upload Picture
@@ -156,12 +165,14 @@ export default function Home() {
         Inventory Management
       </Typography>
       <Stack direction='row' spacing={3} alignItems='center' mb={4}>
-        <Button variant="contained" onClick={handleOpen}>Add New Item</Button>
+        <Button size='large' variant="contained" onClick={handleOpen}>Add New Item</Button>
         <TextField
+          
           variant="outlined"
           placeholder="Search items..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+         
         />
 
       </Stack>
@@ -177,7 +188,7 @@ export default function Home() {
                     </Typography>
                     {image && <img src={image} alt={name} style={{ width: '50px', height: '50px' }} />}
                   </Box>
-                  <IconButton size="small" variant="conatined" color="primary" onClick={() => {deleteItem(name)}}><DeleteIcon sx={{ color: 'red' }}/></IconButton>
+                  <IconButton  onClick={() => {deleteItem(name)}}><DeleteIcon sx={{ color: 'red'}}/></IconButton>
                 </Box> 
                 <Typography variant="body2" color="text.secondary">
                   Quantity: {quantity}
