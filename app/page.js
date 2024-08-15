@@ -1,14 +1,16 @@
 'use client'
 import React, { useState, useEffect } from "react";
-import { Box, Button, Modal, Stack, TextField, Typography, Card, CardContent, CardActions } from "@mui/material";
+import { Box, Button, Modal, Stack, TextField, Typography, Card, CardContent, CardActions, IconButton } from "@mui/material";
 import { firestore, storage } from "./firebase";
 import { collection, query, doc, setDoc, deleteDoc, getDoc, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function Home() {
   const [inventory, setInventory] = useState([]);
   const [open, setOpen] = useState(false);
-  const [itemName, setItemName] = useState("");
+  const [itemName, setItemName] = useState(""); 
+  const [quantity, setQuantity] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [itemImage, setItemImage] = useState(null);
   const [imageFile, setImageFile] = useState(null);
@@ -30,31 +32,37 @@ export default function Home() {
   const removeItem = async (item) => {
     const docRef = doc(collection(firestore, 'inventory'), item);
     const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const { quantity } = docSnap.data();
+    const { quantity ,image} = docSnap.data();
+   
       if (quantity === 1) {
         await deleteDoc(docRef);
       } else {
-        await setDoc(docRef, { quantity: quantity - 1 });
+        await setDoc(docRef, { quantity: quantity - 1, image: image });
       }
-    }
     await updateInventory();
   };
 
-  const addItem = async (item, image) => {
-    console.log("uploading image")
-    const imageUrl = await uploadImage(image);
-    console.log("image uploaded")
+  const deleteItem = async (item) =>{
+    const docRef = doc(collection(firestore, 'inventory'), item);
+    await deleteDoc(docRef);
+    await updateInventory();
+  }
+
+  const addItem = async (item,quant, image) => {
+    let imageUrl = null;
+  
+    if (imageFile) {
+      imageUrl = await uploadImage(image);
+    }
     const docRef = doc(collection(firestore, 'inventory'), item);
     const docSnap = await getDoc(docRef);
-
     if (docSnap.exists() && addPressed) {
-      const { quantity } = docSnap.data();
-      await setDoc(docRef, { quantity: quantity + 1, image: imageUrl });
+      const { quantity, image } = docSnap.data();
+      
+      await setDoc(docRef, { quantity: parseInt(quantity) + parseInt(1), image: image });
     }
     else {
-      await setDoc(docRef, { quantity: 1, image: imageUrl });
+      await setDoc(docRef, { quantity: quant, image: imageUrl });
     }
     await updateInventory();
     addPressed = false;
@@ -107,11 +115,18 @@ export default function Home() {
           <Typography variant="h6">Add Item</Typography>
           <Stack width="100%" direction="column" spacing={2}>
             <TextField
-              variant="outlined"
+              variant="outlined" 
               fullWidth
               label="Item Name"
               value={itemName}
               onChange={(e) => { setItemName(e.target.value) }}
+            />
+            <TextField
+              variant="outlined"
+              fullWidth
+              label="Quantity"
+              value={quantity}
+              onChange={(e) => { setQuantity(e.target.value) }}
             />
             <Button variant="contained" component="label">
               Upload Picture
@@ -130,7 +145,7 @@ export default function Home() {
           )}
           <Button variant="contained" onClick={() => {
             addPressed = true;
-            addItem(itemName, itemImage);
+            addItem(itemName, quantity, itemImage);
             setItemName('');
             handleClose();
           }}>Add</Button>
@@ -155,18 +170,21 @@ export default function Home() {
           {filteredInventory.map(({ name, quantity, image }) => (
             <Card key={name} variant="outlined">
               <CardContent>
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Typography variant="h5" component="div">
-                    {name.charAt(0).toUpperCase() + name.slice(1)}
-                  </Typography>
-                  {image && <img src={image} alt={name} style={{ width: '50px', height: '50px' }} />}
-                </Box>
+                <Box display='flex' sx={{ justifyContent: 'space-between' }}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Typography variant="h5" component="div">
+                      {name.charAt(0).toUpperCase() + name.slice(1)}
+                    </Typography>
+                    {image && <img src={image} alt={name} style={{ width: '50px', height: '50px' }} />}
+                  </Box>
+                  <IconButton size="small" variant="conatined" color="primary" onClick={() => {deleteItem(name)}}><DeleteIcon sx={{ color: 'red' }}/></IconButton>
+                </Box> 
                 <Typography variant="body2" color="text.secondary">
                   Quantity: {quantity}
                 </Typography>
               </CardContent>
               <CardActions>
-                <Button size="small" variant="contained" color="primary" onClick={() => { addItem(name, image); addPressed = true }}>Add</Button>
+                <Button size="small" variant="contained" color="primary" onClick={() => { addItem(name, quantity, image); addPressed = true }}>Add</Button>
                 <Button size="small" variant="contained" color="secondary" onClick={() => removeItem(name)}>Remove</Button>
               </CardActions>
             </Card>
