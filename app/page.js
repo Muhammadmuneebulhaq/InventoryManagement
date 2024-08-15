@@ -1,21 +1,17 @@
 'use client'
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Button, Modal, Stack, TextField, Typography, Card, CardContent, CardActions } from "@mui/material";
 import { firestore, storage } from "./firebase";
 import { collection, query, doc, setDoc, deleteDoc, getDoc, getDocs } from "firebase/firestore";
-import { Camera } from "react-camera-pro";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function Home() {
   const [inventory, setInventory] = useState([]);
   const [open, setOpen] = useState(false);
-  const [openCamera, setOpenCamera] = useState(false);
   const [itemName, setItemName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [minQuantity, setMinQuantity] = useState("");
-  const [maxQuantity, setMaxQuantity] = useState("");
   const [itemImage, setItemImage] = useState(null);
-  const camera = useRef(null);
+  const [imageFile, setImageFile] = useState(null);
   let addPressed = false;
 
   const updateInventory = async () => {
@@ -47,19 +43,17 @@ export default function Home() {
   };
 
   const addItem = async (item, image) => {
-    
+    console.log("uploading image")
     const imageUrl = await uploadImage(image);
-   
+    console.log("image uploaded")
     const docRef = doc(collection(firestore, 'inventory'), item);
     const docSnap = await getDoc(docRef);
-    
+
     if (docSnap.exists() && addPressed) {
       const { quantity } = docSnap.data();
       await setDoc(docRef, { quantity: quantity + 1, image: imageUrl });
-    } else if (!addPressed && docSnap.exists()) {
-      const { quantity } = docSnap.data();
-      await setDoc(docRef, { quantity: quantity, image: imageUrl });
-    } else {
+    }
+    else {
       await setDoc(docRef, { quantity: 1, image: imageUrl });
     }
     await updateInventory();
@@ -74,52 +68,60 @@ export default function Home() {
   const handleClose = () => {
     setOpen(false);
     setItemImage(null);
+    setImageFile(null);
   };
 
-  const handleOpenCamera = () => setOpenCamera(true);
-  const handleCloseCamera = () => setOpenCamera(false);
-
-  const takePicture = () => {
-    const photo = camera.current.takePhoto();
-    setItemImage(photo);
-    handleCloseCamera();
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setItemImage(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const uploadImage = async (image) => {
-    if (!image) return null;
-    
-    const response = await fetch(image);
-    const blob = await response.blob();
+    if (!imageFile) return null;
+
     const imageRef = ref(storage, `images/${Date.now()}_${Math.random().toString(36).substring(7)}`);
-    await uploadBytes(imageRef, blob);
+    await uploadBytes(imageRef, imageFile);
     const imageUrl = await getDownloadURL(imageRef);
     return imageUrl;
   };
 
   const filteredInventory = inventory.filter(item => {
     const matchesSearchTerm = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesQuantity = (
-      (minQuantity === "" || item.quantity >= parseInt(minQuantity)) &&
-      (maxQuantity === "" || item.quantity <= parseInt(maxQuantity))
-    );
-    return matchesSearchTerm && matchesQuantity;
+
+    return matchesSearchTerm;
   });
 
   return (
     <Box width='100vw' height='100vh' display='flex' flexDirection="column" justifyContent='center' alignItems='center' p={4} gap={2}>
       <Modal open={open} onClose={handleClose}>
-        <Box position="absolute" top="50%" left="50%" width={400} bgcolor="white" border="2px solid #000" 
+        <Box position="absolute" top="50%" left="50%" width={400} bgcolor="white" border="2px solid #000"
           boxShadow={24} p={4} display="flex" flexDirection="column" gap={3} sx={{ transform: "translate(-50%, -50%)" }}
         >
           <Typography variant="h6">Add Item</Typography>
-          <Stack width="100%" direction="row" spacing={2}>
+          <Stack width="100%" direction="column" spacing={2}>
             <TextField
               variant="outlined"
               fullWidth
+              label="Item Name"
               value={itemName}
               onChange={(e) => { setItemName(e.target.value) }}
             />
-            <Button variant="contained" onClick={handleOpenCamera}>Take Picture</Button>
+            <Button variant="contained" component="label">
+              Upload Picture
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleImageChange}
+              />
+            </Button>
           </Stack>
           {itemImage && (
             <Box mt={2}>
@@ -135,15 +137,6 @@ export default function Home() {
         </Box>
       </Modal>
 
-      <Modal open={openCamera} onClose={handleCloseCamera}>
-        <Box position="absolute" top="50%" left="50%" width={400} height={500} bgcolor="white" border="2px solid #000" 
-          boxShadow={24} p={4} display="flex" flexDirection="column" gap={3} sx={{ transform: "translate(-50%, -50%)" }}
-        >
-          <Camera ref={camera} />
-          <Button variant="contained" onClick={takePicture}>Take Picture</Button>
-        </Box>
-      </Modal>
-
       <Typography variant='h2' color="primary" >
         Inventory Management
       </Typography>
@@ -155,20 +148,7 @@ export default function Home() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <TextField
-          variant="outlined"
-          placeholder="Min Quantity"
-          value={minQuantity}
-          onChange={(e) => setMinQuantity(e.target.value)}
-          type="number"
-        />
-        <TextField
-          variant="outlined"
-          placeholder="Max Quantity"
-          value={maxQuantity}
-          onChange={(e) => setMaxQuantity(e.target.value)}
-          type="number"
-        />
+
       </Stack>
       <Stack width="800px" height="300px" spacing={2} overflow={'auto'}>
         <Box width="100%" maxWidth="800px" mx="auto">
@@ -186,8 +166,8 @@ export default function Home() {
                 </Typography>
               </CardContent>
               <CardActions>
-                <Button size="small" variant="contained" color="primary" onClick={() => {addItem(name, image); addPressed= true}}>Add</Button>
-                <Button size="small" variant="contained" color="secondary" onClick={() => removeItem(name, image)}>Remove</Button>
+                <Button size="small" variant="contained" color="primary" onClick={() => { addItem(name, image); addPressed = true }}>Add</Button>
+                <Button size="small" variant="contained" color="secondary" onClick={() => removeItem(name)}>Remove</Button>
               </CardActions>
             </Card>
           ))}
